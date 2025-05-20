@@ -12,7 +12,7 @@ class PetaniPage extends StatefulWidget {
 }
 
 class _PetaniPageState extends State<PetaniPage> {
-  static const _pageSize = 3;
+  static const _pageSize = 10;
 
   final PagingController<int, Petani> _pagingController =
       PagingController(firstPageKey: 1);

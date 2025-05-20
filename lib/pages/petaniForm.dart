@@ -1,12 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:pagination/models/errMsg.dart';
+import 'package:pagination/models/kelompok.dart';
 import 'package:pagination/models/model.dart';
 import 'package:pagination/service/apiPetani.dart';
 
 class PetaniFormPage extends StatefulWidget {
   final Petani? petani;
-
   const PetaniFormPage({super.key, this.petani});
 
   @override
@@ -15,100 +16,191 @@ class PetaniFormPage extends StatefulWidget {
 
 class _PetaniFormPageState extends State<PetaniFormPage> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _namaController;
-  late TextEditingController _nikController;
-  late TextEditingController _alamatController;
-  late TextEditingController _telpController;
-  String _status = "Y";
   File? _selectedImage;
+  final _picker = ImagePicker();
+
+  final TextEditingController _namaController = TextEditingController();
+  final TextEditingController _nikController = TextEditingController();
+  final TextEditingController _alamatController = TextEditingController();
+  final TextEditingController _telpController = TextEditingController();
+
+  String idKelompok='';
+  String? _selectedStatus;
+  String idPenjual='';
+  late ErrorMSG response;
+  // bool _isupdate=false;
+  // bool _validate=false;
+  bool _success=false;
+  List<Kelompok> _kelompok=[];
+  String _imagePath='';
+  // final List<String> _kelompokOptions = ['Kelompok A', 'Kelompok B', 'Kelompok C'];
+  final List<String> _statusOptions = ['Y', 'T'];
+
+  Future<void> _pickImage() async {
+    final picked = await _picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      setState(() {
+         _selectedImage = File(picked.path);
+        _imagePath=picked.path;
+      });
+    }
+  }
+  void getKelompok() async {
+  final response = await Apipetani.getKelompokTani();
+    setState(() {
+        _kelompok=response.toList();
+      });
+  }
+ void _submit() async{
+    if(_formKey.currentState!.validate()){      
+      _formKey.currentState!.save();
+      var params =  {
+          'nama':_namaController.text.toString(),
+          'nik':_nikController.text.toString(),
+          'alamat' : _alamatController.text.toString(),
+          'telp' :_telpController.text.toString(),
+          'status':_selectedStatus,
+          'id_kelompok_tani' :idKelompok,
+        }; 
+        response=await Apipetani.savePetani(idPenjual,params,_imagePath);
+        _success=response.success;
+        final snackBar = SnackBar(content: Text(response.message),);        
+        ScaffoldMessenger.of(context).showSnackBar(snackBar);
+        if (_success) {
+          Navigator.pop(context, true); 
+        }
+    }else {
+      // _validate = true;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    final p = widget.petani;
-    _namaController = TextEditingController(text: p?.nama ?? '');
-    _nikController = TextEditingController(text: p?.nik ?? '');
-    _alamatController = TextEditingController(text: p?.alamat ?? '');
-    _telpController = TextEditingController(text: p?.telp ?? '');
-    _status = p?.status ?? "Y";
-  }
+    getKelompok();
+    if (widget.petani != null) {
+      idPenjual=widget.petani!.idPenjual;
+      _namaController.text = widget.petani!.nama;
+      _nikController.text = widget.petani!.nik;
+      _alamatController.text = widget.petani!.alamat;
+      _telpController.text = widget.petani!.telp;
+      idKelompok = widget.petani!.idKelompokTani;
+      _selectedStatus = widget.petani!.status;
 
-  Future<void> _pickImage() async {
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() {
-        _selectedImage = File(picked.path);
-      });
-    }
-  }
-
-  Future<void> _simpan() async {
-    if (_formKey.currentState!.validate()) {
-      final petani = Petani(
-        idPenjual: widget.petani?.idPenjual ?? '',
-        nama: _namaController.text,
-        nik: _nikController.text,
-        alamat: _alamatController.text,
-        telp: _telpController.text,
-        foto: '', // akan ditangani via multipart
-        idKelompokTani: '1',
-        status: _status,
-        namaKelompok: '',
-        createdAt: '',
-        updatedAt: '',
-      );
-
-      bool success = false;
-
-      if (widget.petani == null && _selectedImage != null) {
-        success = await Apipetani.createPetaniWithImage(petani, _selectedImage!);
-      } else if (widget.petani != null) {
-        success = await Apipetani.updatePetani(widget.petani!.idPenjual, petani);
+      if (_kelompok.contains(widget.petani!.idKelompokTani)) {
+        idKelompok = widget.petani!.idKelompokTani ;
       }
 
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Berhasil disimpan')),
-        );
-        Navigator.pop(context, true);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal menyimpan')),
-        );
+      if (_statusOptions.contains(widget.petani!.status)) {
+        _selectedStatus = widget.petani!.status;
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isEdit = widget.petani != null;
     return Scaffold(
-      appBar: AppBar(title: Text(isEdit ? 'Edit Petani' : 'Tambah Petani')),
+      appBar: AppBar(title: Text('Form Petani')),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: ListView(
             children: [
-              TextFormField(controller: _namaController, decoration: InputDecoration(labelText: 'Nama')),
-              TextFormField(controller: _nikController, decoration: InputDecoration(labelText: 'NIK')),
-              TextFormField(controller: _alamatController, decoration: InputDecoration(labelText: 'Alamat')),
-              TextFormField(controller: _telpController, decoration: InputDecoration(labelText: 'Telepon')),
-              DropdownButtonFormField<String>(
-                value: _status,
-                decoration: InputDecoration(labelText: 'Status'),
-                items: ['Y', 'N'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                onChanged: (val) => setState(() => _status = val!),
-              ),
-              SizedBox(height: 16),
-              ElevatedButton(onPressed: _pickImage, child: Text('Pilih Foto')),
-              if (_selectedImage != null)
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Image.file(_selectedImage!, height: 80),
+              GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  height: 150,
+                  color: Colors.grey[300],
+                  child: _selectedImage != null
+                      ? Image.file(_selectedImage!, fit: BoxFit.cover)
+                      : const Center(child: Text('Pilih Foto')),
                 ),
-              SizedBox(height: 16),
-              ElevatedButton(onPressed: _simpan, child: Text('Simpan')),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _namaController,
+                decoration: InputDecoration(labelText: 'Nama'),
+                validator: (value) => value!.isEmpty ? 'Wajib diisi' : null,
+              ),
+              TextFormField(
+                controller: _nikController,
+                decoration: InputDecoration(labelText: 'NIK'),
+                validator: (value) => value!.isEmpty ? 'Wajib diisi' : null,
+              ),
+              TextFormField(
+                controller: _alamatController,
+                decoration: InputDecoration(labelText: 'Alamat'),
+                validator: (value) => value!.isEmpty ? 'Wajib diisi' : null,
+              ),
+              TextFormField(
+                controller: _telpController,
+                decoration: InputDecoration(labelText: 'Telepon'),
+                validator: (value) => value!.isEmpty ? 'Wajib diisi' : null,
+              ),
+              Padding(
+                padding: EdgeInsets.all(5),
+                child: DropdownButtonFormField(
+                  value: idKelompok==''?null:idKelompok,
+                  hint: Text("Pilih Kelompok"),
+                  decoration: const InputDecoration(
+                      icon: Icon(Icons.category_rounded),
+                    ),
+                  items: _kelompok.map((item) {
+                      return DropdownMenuItem(
+                        child: Text(item.namaKelompok),
+                        value: item.idKelompokTani,
+                      );
+                    }).toList(),
+                  onChanged: (value){
+                    setState(() {
+                        idKelompok=value.toString();
+                      });
+                  },
+                  validator: (u) => u == null ? "Wajib Diisi " : null,
+                ),
+              ),
+              Row(
+                children: [
+                  Text("Status: "),
+                  SizedBox(width: 8,),
+                  Radio<String>(
+                    value: 'Y',
+                    groupValue: _selectedStatus,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedStatus = value;
+                      });
+                    },
+                  ),
+                  Text('Aktif'),
+
+                  Radio<String>(
+                    value: 'N',
+                    groupValue: _selectedStatus,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedStatus = value;
+                      });
+                    },
+                  ),
+                  Text('Tidak Aktif'),
+                ],
+              ),
+              // DropdownButtonFormField<String>(
+              //   value: _selectedStatus,
+              //   decoration: InputDecoration(labelText: 'Status'),
+              //   items: _statusOptions
+              //       .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+              //       .toList(),
+              //   onChanged: (val) => setState(() => _selectedStatus = val),
+              //   validator: (value) => value == null ? 'Pilih salah satu' : null,
+              // ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _submit,
+                child: const Text('Simpan'),
+              ),
             ],
           ),
         ),
