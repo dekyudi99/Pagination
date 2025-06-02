@@ -3,6 +3,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:pagination/models/model.dart';
 import 'package:pagination/service/apiPetani.dart';
 import 'package:pagination/pages/petaniForm.dart';
+import 'package:pagination/pages/loginPage.dart';
 
 class PetaniPage extends StatefulWidget {
   const PetaniPage({super.key});
@@ -66,6 +67,18 @@ class _PetaniPageState extends State<PetaniPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Data Petani"),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: () async {
+              await Apipetani.logout();
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => LoginPage()),
+              );
+            },
+          )
+        ],
       ),
       body: Column(
         children: [
